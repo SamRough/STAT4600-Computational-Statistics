@@ -1,0 +1,324 @@
+---
+title: "Assignment 6"
+author: "Xinhao Wang"
+date: '2018-03-29'
+output: html_document
+---
+#Question 1
+##Part(A)
+```{r}
+h <- function(x) (2-(x+1)^2)*(x<=0) + (1)*(x>0)*(x<=1) + (x-2)^2*(1<x)
+f <- function(x) h(x)/3
+curve(f,-1,2,xlab = "X", ylab = "f(x)", main = "density function f(x)")
+
+#Part(A)
+
+#AR-method based on a rectangle.
+#
+# find the bound of function f(x). the interval inside optimize should be (-1,2). 
+# but using (-1,2) can not get the correct value of maximum. Using (-1,1) for instance.
+# M <- optimize(f,interval = c(-1,1), maximum = T)$objective
+
+r.rectangle.ar <- function(n, graph=FALSE){
+  X <- rep(0,n)
+  nb.generated <- 0
+  nb.accepted <- 0
+  M <- optimize(f,interval = c(-1,1), maximum = T)$objective
+  if(graph==TRUE){
+    curve(f,-1,2,xlab = "X", ylab = "f(x)", main = "density function f(x)")
+  }
+  while(nb.accepted < n){
+    nb.generated <- nb.generated + 1
+    Y <- runif(1,-1,2)
+    U <- runif(1,0,M)
+    if(U < f(Y)){
+      nb.accepted <- nb.accepted + 1
+      X[nb.accepted] <- Y
+      if(graph==TRUE) points(Y, U, pch=16, cex=0.75)
+    }
+    else{
+      if(graph==TRUE) points(Y, U, pch=16, cex=0.75, col='blue')
+    }
+  }
+  if(graph==TRUE){
+    hist(X,breaks = 15, freq = F, xlim = c(-1,2),
+         main = 'Histogram of generated sample and target distribution')
+    curve(f, -1, 2, add = TRUE, col='red')
+  }
+  return(list(X=X,prob=n/nb.generated))
+}
+# The acceptance probability
+r.rectangle.ar(5000, TRUE)$prob
+
+```
+##part(B)
+```{r}
+# using the candidate density g(x) = 2/9(2-x)
+g <- function(x) 2/9*(2-x)
+#
+# study the ratio
+#
+ratio <- function(x) f(x)/g(x)
+par(mfrow=c(1,1))
+curve(ratio,-1,2,n=5000,ylim=c(0,2),main= 'the ratio f(x)/g(x)')
+
+#find the maximum value of ratio
+M <- optimize(ratio, interval = c(-1,2), maximum = T)$objective
+abline(h=M, col="blue",lty=2)
+#
+# The smallest M = ratio(1.000006) = 1.499991, and it is the maximum of the ratio.
+# 
+#
+# Using Accept-Reject on the rectangle with M
+#
+r.candidate.ar <- function(n, M, graph=FALSE){
+  X <- rep(0,n)
+  nb.generated <- 0
+  nb.accepted <- 0
+  if(graph == TRUE){
+    par(mfrow=c(2,1))
+    curve(M*g(x),-1,2,col = 'blue', lty = 2)
+    curve(f,-1,2,add = T,xlab = "X", ylab = "f(x)", main = "density function f(x)")
+  }
+  while(nb.accepted < n){
+    Y <- 2-3*sqrt(runif(1)) # Y generated through inverse transformation of G(x)
+    U <- runif(1,0,M*g(Y))
+    nb.generated <- nb.generated + 1
+    if(U < f(Y)){
+      nb.accepted <- nb.accepted + 1
+      X[nb.accepted] <- Y
+      if(graph==TRUE) points(Y,U, pch=16, cex=0.5)
+    }
+    else{
+      if(graph==TRUE) points(Y, U, pch=16, cex=0.5, col='blue')
+    }
+  }
+  if(graph==TRUE){
+    hist(X,breaks = 15, freq = F, xlim = c(-1,2),
+         main = 'Histogram of generated sample and target distribution')
+    curve(f, -1, 2, add = TRUE, col='red')
+  }
+  return(list(X=X,n/nb.generated))
+}
+
+# The acceptance probability
+r.candidate.ar(n=5000,M,T)[2]
+
+```
+## part(C)
+```{r}
+#
+# find a better candidate density g(x)=(3/10)-(1/9)*x
+#
+# using the candidate density g(x)
+g.2 <-function(x) 3/10-1/9*(x)
+# study the ratio
+#
+ratio <- function(x) f(x)/g.2(x)
+par(mfrow=c(1,1))
+curve(ratio,-1,2,n=5000,ylim=c(0,2),main= 'the ratio f(x)/g(x)')
+
+#find the maximum value of ratio
+M <- optimize(ratio, interval = c(-1,2), maximum = T)$objective
+abline(h=M, col="blue",lty=2)
+
+r.candidate2.ar <- function(n, M, graph=FALSE){
+  X <- rep(0,n)
+  nb.generated <- 0
+  nb.accepted <- 0
+  if(graph == TRUE){
+    par(mfrow=c(2,1))
+    curve(M*g.2(x),-1,2,col = 'blue', lty = 2)
+    curve(f,-1,2,add = T,xlab = "X", ylab = "f(x)", main = "density function f(x)")
+  }
+  while(nb.accepted < n){
+    Y <- runif(1,-1,2) # using runif(-1,2) to sample Y.
+    U <- runif(1,0,M*g.2(Y))
+    nb.generated <- nb.generated + 1
+    if(U < f(Y)){
+      nb.accepted <- nb.accepted + 1
+      X[nb.accepted] <- Y
+      if(graph==TRUE) points(Y,U, pch=16, cex=0.5)
+    }
+    else{
+      if(graph==TRUE) points(Y, U, pch=16, cex=0.5, col='blue')
+    }
+  }
+  if(graph==TRUE){
+    hist(X,breaks = 15, freq = F, xlim = c(-1,2),
+         main = 'Histogram of generated sample and target distribution')
+    curve(f, -1, 2, add = TRUE, col='red')
+  }
+  return(list(X=X,n/nb.generated))
+}
+
+
+# The acceptance probability
+r.candidate2.ar(n=5000,M,T)[2]
+```
+## part(D)
+```{r}
+
+# we aleardy show histograms above.
+# P(acceptance based on rectangle) is about 0.50.
+# P(acceptance based on g(x)) is about 0.56.
+# P(acceptance based on better g(x)) is about 0.68.
+# we conclude that the better candidate density g(x)=(3/10)-(1/9)*x in part(c) has the best performance to simulator f.
+
+```
+
+# Question2 
+## part(A)
+```{r}
+# approximation I.1 using a Cauchy importance function;
+
+w.1 <- function(x) sqrt(2*pi)*dnorm(x)*pi*(1+x^2)
+curve(w.1)
+
+interval.I.1 <- function(n, summary=F, traceplot=F){
+  X <- rcauchy(n)
+  w.X <- w.1(X)
+  m.w <- mean(w.X)
+  if(traceplot == TRUE){
+    plot(1:n, cumsum(w.X)/1:n, type="l",
+         main="Trace plot", ylab="Running mean of w")
+    abline(h=sqrt(2*pi), lty=2, col="red")
+  }
+  if(summary == TRUE){
+    sd.w <- sd(w.X)
+    return(list(estimate=m.w, std=sd.w/sqrt(n),
+                CI.95=c(m.w-1.96*sd.w/sqrt(n),
+                        m.w+1.96*sd.w/sqrt(n)),
+                CI.99=c(m.w-2.576*sd.w/sqrt(n),
+                        m.w+2.576*sd.w/sqrt(n))))
+  }
+  return(m.w)
+}
+interval.I.1(10000,T,T)
+
+I.1 <- replicate(1000,interval.I.1(10000,F,F))
+
+# 90% confidence interval.
+quantile(I.1,probs = c(0.05,0.95))
+
+```
+## part(B)
+```{r}
+# approximation I.2 using a Cauchy importance function;
+
+w.2 <- function(x) pi*dcauchy(x)/(1/sqrt(2*pi)*exp(-x^2/2))
+curve(w.2)
+
+interval.I.2 <- function(n, summary=F, traceplot=F){
+  X <- rnorm(n)
+  w.X <- w.2(X)
+  m.w <- mean(w.X)
+  if(traceplot == TRUE){
+    plot(1:n, cumsum(w.X)/1:n, type="l",
+         main="Trace plot", ylab="Running mean of w")
+    abline(h=pi, lty=2, col="red")
+  }
+  if(summary == TRUE){
+    sd.w <- sd(w.X)
+    return(list(estimate=m.w, std=sd.w/sqrt(n),
+                CI.95=c(m.w-1.96*sd.w/sqrt(n),
+                        m.w+1.96*sd.w/sqrt(n)),
+                CI.99=c(m.w-2.576*sd.w/sqrt(n),
+                        m.w+2.576*sd.w/sqrt(n))))
+  }
+  return(m.w)
+}
+
+interval.I.2(10000,T,T)
+
+I.2 <- replicate(1000,interval.I.2(10000,F,F))
+
+# 90% confidence interval.
+quantile(I.2,probs = c(0.05,0.95))
+
+
+#########
+# The strategy used in part(B) fails, after 1000 times replicate, 
+# I.2=pi is not include in the 90% confidence interval.
+#########
+```
+
+
+#Question3
+## part(A)&(B)
+```{r}
+x <- c(8.71, 1.57, 4.22, 6.38, 1.72, 7.70, 8.43, 2.99, 7.45, 4.71,
+       9.25, 6.05, 7.32, 4.99, 4.08, 7.59, 5.52, 2.63, 6.24, 5.90)
+# using log-likelihood function.
+logL <- Vectorize(function(a,b){
+  sum(sum(dweibull(x,shape = a,scale = b,log = T)),
+       dmultinom(c(1,2),prob = c(pweibull(4,shape = a,scale = b)-pweibull(3,shape = a,scale = b),
+                                 pweibull(10,shape = a,scale = b,lower.tail = F)),log = T))
+},vectorize.args = list('a','b'))
+
+
+a.grid <- seq(1,4,.05)
+b.grid <- seq(5,15,.05)
+
+logL.matrix <- outer(a.grid,b.grid,logL)
+contour(a.grid,b.grid,logL.matrix,nlevels=30)
+
+## part(B)
+
+# a function to find MLEs of a and b.
+logL.v <- function(theta){
+  y.a <- theta[1]
+  y.b <- theta[2]
+  return(sum(sum(dweibull(x,shape = y.a,scale = y.b,log = T)),
+             dmultinom(c(1,2),prob = c(pweibull(4,shape = y.a,scale = y.b)-pweibull(3,shape = y.a,scale = y.b),
+                                       pweibull(10,shape = y.a,scale = y.b,lower.tail = F)),log = T)))
+}
+
+# randomly choose a point (2.2,6.8) which is closed to the centre point.
+max.weibull <- optim(c(2.2,6.8),logL.v,control = list(fnscale=-1))
+points(max.weibull$par[1],max.weibull$par[2],col='red',pch=16)
+# MLEs for a and b.
+#[1] 2.669036 6.779820
+
+
+```
+
+## part(C)
+```{r}
+# The sample
+R.x <- c(8.71, 1.57, 4.22, 6.38, 1.72, 7.70, 8.43, 2.99, 7.45, 4.71,
+         9.25, 6.05, 7.32, 4.99, 4.08, 7.59, 5.52, 2.63, 6.24, 5.90)
+#
+# Generating one bootstrap replicate of a and b. (notice the bootstrap samples
+# are of the same size as R.x)
+#
+bootstrap.ab <- function(original.sample){
+  n <- length(original.sample)
+  selected.elements <- sample(1:n, size = n, replace=TRUE)
+  boostrap.sample <- original.sample[selected.elements]
+  logL.v <- function(theta){
+    y.a <- theta[1]
+    y.b <- theta[2]
+    return(sum(sum(dweibull(boostrap.sample,shape = y.a,scale = y.b,log = T)),
+               dmultinom(c(1,2),prob = c(pweibull(4,shape = y.a,scale = y.b)-pweibull(3,shape = y.a,scale = y.b),
+                                         pweibull(10,shape = y.a,scale = y.b,lower.tail = F)),log = T)))
+  }
+  return((optim(c(2.2,6.8),logL.v,control = list(fnscale=-1))$par))
+}
+bootstrap.ab(R.x)
+
+replicates.ab <- replicate(2000,bootstrap.ab(R.x))
+
+# 95% CI for MLEs a and b.
+quantile(replicates.ab[1,],c(0.25,0.975))
+quantile(replicates.ab[2,],c(0.25,0.975))
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+

@@ -1,0 +1,123 @@
+---
+title: "Assignment 7"
+author: "Xinhao Wang"
+date: '2018-04-09'
+output: html_document
+---
+
+#Question 1
+## part(A)
+```{r}
+#
+# part(A)
+#
+x.obs <- c(rep(0,39),rep(1,14),rep(2,22),rep(3,12),rep(4,3),5)
+x.bar <- mean(x.obs)
+m <- 5
+n.0 <- 39
+n <- 91
+#
+# Draw contours of the likelihood of theta.
+#
+tails.likelihood <- Vectorize(function(w,p){
+  ((w+(1-w)*((1-p)^m))^n.0)*((1-w)^(n-n.0))*(p^(n*x.bar))*((1-p)^(n*(m-x.bar)-n.0*m))*prod(choose(m,x.obs))
+},vectorize.args = c('w','p'))
+
+w.grid <- seq(0.25,0.5,0.001)
+p.grid <- seq(0.3,0.5,0.001)
+likelihood.matrix <- outer(w.grid,p.grid,tails.likelihood)
+contour(w.grid,p.grid,likelihood.matrix,nlevels=30)
+#
+# Add the parametrized curve to understand the behaviour in theta. And parametrized curve cross the 
+# center of the contours, which is the MLE.
+#
+lines((n.0-n*(1-p.grid)^m)/(n*(1-(1-p.grid)^m)),p.grid,col='red',lty=2)
+#
+# obtain MLE of theta by log-likelihood function
+#
+tails.log.likelihood <- function(theta){
+  w <- theta[1]
+  p <- theta[2]
+  return(n.0*log(w+(1-w)*((1-p)^m))+(n-n.0)*log(1-w)+n*x.bar*log(p)+(n*(m-x.bar)-n.0*m)*log(1-p)+sum(choose(m,x.obs)))
+}
+MLE.theta <- optim(c(0.37,0.37),tails.log.likelihood,control=list(fnscale=-1))
+MLE.theta$par
+points(MLE.theta$par[1],MLE.theta$par[2],col='blue',pch=16)
+
+```
+
+
+
+##Part(B)
+```{r}
+#
+# part(B)
+#
+#
+# Profile log-likelihood of p
+#
+L.p <- Vectorize(function(y){tails.log.likelihood(c((n.0-n*(1-y)^m)/(n*(1-(1-y)^m)),y))},vectorize.args = list('y'))
+curve(L.p,0.01,1,xlab='p',ylab='Profile Log-likelihood')
+# MLE of theta
+mle.p <- optimize(L.p,c(0.2,0.5),maximum = T)$maximum
+abline(v=0.3912404, col='blue')
+mle.w <- (n.0-n*(1-mle.p)^m)/(n*(1-(1-mle.p)^m))
+theta.MLE <- c(mle.p,mle.w)
+theta.MLE
+```
+
+
+
+# Question 2
+## Part(A)
+```{r}
+yi <- c(0,1,3,5)
+ni <- c(5,6,5,6)
+xi <- c(-0.86,-0.3,-0.05,0.73)
+Binomial.post <- function(theta){
+  pi <- exp(theta[1]+theta[2]*xi)/(1+exp(theta[1]+theta[2]*xi))
+  #return(sum(dbinom(yi,ni,pi,log = T),dunif(1,-5,5,log = T),dunif(1,0,50,log = T)))
+  return(prod(dbinom(yi,ni,pi),dunif(1,-5,5),dunif(1,0,50)))
+}
+
+post.mode <- optim(c(0,5),Binomial.post,control=list(fnscale=-1))$par
+post.mode
+```
+
+
+## Part(B)
+```{r}
+#
+# Bayes estimators of theta.0 and theta.1
+#
+Binomial.post.B <- Vectorize(function(theta.0,theta.1){
+  pi <- exp(theta.0+theta.1*xi)/(1+exp(theta.0+theta.1*xi))
+  return(prod(dbinom(yi,ni,pi)))
+},vectorize.args = list('theta.0','theta.1'))
+
+theta.B <- function(N){
+  theta.0 <- runif(N,-5,5)
+  theta.1 <- runif(N,0,50)
+  h1.theta.0 <- theta.0*Binomial.post.B(theta.0,theta.1)
+  h1.theta.1 <- theta.1*Binomial.post.B(theta.0,theta.1)
+  h0 <- Binomial.post.B(theta.0,theta.1)
+  theta.0.hat <- sum(h1.theta.0)/sum(h0)
+  theta.1.hat <- sum(h1.theta.1)/sum(h0)
+  return(c(theta.0.hat,theta.1.hat))
+}
+theta.B(N=10000)
+
+```
+
+
+## Part(C)
+```{r}
+equal.tails.CI <- function(alpha){
+  # Finding the appropriate quantiles
+
+}
+```
+
+
+
+## Part(D&E)

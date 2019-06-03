@@ -1,0 +1,135 @@
+---
+title: "A2"
+author: "Xinhao Wang"
+date: '2018-01-21'
+output:
+  html_document: default
+---
+
+#Question 1
+```{r}
+#Q1(A)
+
+curve(cos(pi*x) + exp(x/2),-10,2)
+curve(cos(pi*x),add = TRUE,col = "Red")
+
+#
+# We can conclude that there has more than one approximate zeros of f from x = -10 to x=2.
+#
+```
+
+
+```{r}
+# Q1(B)
+# Write an R function named f1 that performs the Newton iteration.
+f1 <- function(x.0, tol.level, max.iter=100, n.iter=0){
+  for(n.iter in 0:100){
+    f <- cos(pi*x.0) + exp(x.0/2)
+    deriv.f <- exp(x.0/2)*(1/2) - sin(pi*x.0)*pi
+    if(abs(f) > tol.level){
+      x.0 <- x.0 - f/deriv.f
+    }else break
+  }
+  outcomes <- list(x.0, f, n.iter)
+  names(outcomes) <- c("x.0", "f(x.0)", "n.iter")
+  return(t(outcomes))
+}
+```
+
+```{r}
+#Q1(C)
+f.uniroot <- function(x) {
+  cos(pi*x) + exp(x/2)
+}
+t(uniroot(f.uniroot,lower = -5, upper = -4))
+
+f1(x.0 = -4.6,tol.level = 10^(-7))
+f1(x.0 = -4.5,tol.level = 10^(-7))
+```
+
+
+
+
+#Question 2
+```{r}
+
+# input "CSV" file
+EPl.1617 <- read.csv("/Users/xinhao/Desktop/STAT4600/Assignment 2/EPL_1617.csv")
+# removing the first column "date".
+EPl.1617 <- EPl.1617[1:380,2:5]
+
+# "a" is variable of function "season.summary"
+season.summary <- function(a){
+  wins.team <- c()
+  losses.team <- c()
+  ties.team <- c()
+  # using "for" loop to calculate frequences of wins,losses and ties for every teams.
+  for (i in 1:nrow(a)){
+    if(a[i,3] > a[i,4]){
+      wins.team <- c(wins.team,as.character(a[i,1]))
+      losses.team <- c(losses.team,as.character(EPl.1617[i,2]))
+    }
+    if(a[i,3] < a[i,4]){
+      wins.team <- c(wins.team,as.character(EPl.1617[i,2]))
+      losses.team <- c(losses.team,as.character(a[i,1]))
+    }
+    if(a[i,3] == a[i,4]){
+      ties.team <- c(ties.team,as.character(a[i,1]),as.character(a[i,2]))
+    }
+  }
+  
+  # number of wins <- n.wins
+  # number of ties <- n.ties
+  # number of losser <- n.losses
+  # pts.season is a matrix of points for every team.
+  # s.season is a part of final output matrix but without order.
+  n.wins <- as.matrix(table(wins.team))
+  n.ties <- as.matrix(table(ties.team))
+  n.losses <- as.matrix(table(losses.team))
+  pts.season <- 3*n.wins+1*n.ties
+  s.season <- cbind(n.wins,n.ties,n.losses,pts.season)
+  
+  library(plyr)
+  #goal scores at home
+  HG.season <- count(EPl.1617,"HT","HG")
+  #goal scores away home
+  AG.season <- count(EPl.1617,"AT","AG")
+  #total goal scores for each team
+  TG.season <- cbind(HG.season,AG.season)
+  TG.season <- cbind.data.frame(TG.season[,1],TG.season[,2]+TG.season[,4])
+
+
+  #loss scores at home
+  HL.season <- count(EPl.1617,"HT","AG")
+  #loss scores away home
+  AL.season <- count(EPl.1617,"AT","HG")
+  #total loss scores for each team
+  TL.season <- cbind(HL.season,AL.season)
+  TL.season <- cbind.data.frame(TL.season[,1],TL.season[,2]+TL.season[,4])
+
+  #goal differnece
+  GD.season <- cbind.data.frame(TG.season[,1],TG.season[,2]-TL.season[,2])
+
+  #g.season is another part of final answer matrix but without order.
+  g.season <- cbind(TG.season,TL.season,GD.season)
+  g.season <- g.season[,c(1:2,4,6)]
+
+  #combine s.season and g.season to make up final matrix final.season but without order.
+  final.season <- cbind(s.season,g.season[,2:4])
+  colnames(final.season) <- c("W","T","L","Pts","GF","GA","GD")
+  final.season <- as.matrix(final.season)
+  
+  
+  # re-order the table according to decreasing point totals.
+  final.season <- final.season[order(final.season[,4],final.season[,7],final.season[,1],decreasing = TRUE),]
+  
+  
+  return(final.season)
+
+}
+
+season.summary(a = EPl.1617)
+
+
+```
+

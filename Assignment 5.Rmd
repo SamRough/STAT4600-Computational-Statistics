@@ -1,0 +1,157 @@
+---
+title: "Assignment 5"
+author: "Xinhao Wang"
+date: '2018-03-15'
+output: html_document
+---
+
+#Question1 
+#
+```{r}
+# part(A)
+# We generating random samples from the uniform distribution on the interval (-1,1), and using those samples(x.i)
+# to calculate the expectation of h(x).
+#
+# Monte Carlo integration
+#
+h.1 <- function(x){0.5*abs(1-x)*abs(sin(pi*x))}
+Monte.Carlo.1 <- function(n){
+  X <- runif(n,-1,1)
+  h.X <- 2*abs(1-X)*abs(sin(pi*X))
+  m.h <- mean(h.X)
+}
+replicates.1 <- replicate(500,Monte.Carlo.1(n=1000))
+hist(replicates.1)
+# the 90% confidence interval by 'uniform approach'.
+quantile(replicates.1,probs=c(0.05,0.95))
+
+```
+
+```{r}
+#
+# part(B)
+#
+# using inversion method generates random samples X(1) to X(n) by the density g(x)，at first we find the CDF of X which
+# G(X) follows a unif(0,1),and G(x)=3/4(x-(1/2)*x^2)+9/8. Then we find the inverse function G-invs,
+# Ginvs=2-sqrt(7-(8/3)G(x)).
+#
+
+#
+# Monte Carlo integration
+#
+g <- function(x) 3/4*abs(1-x)
+G <- function(x) 3/4*(x-(1/2)*x^2)+9/8
+# for G-inverse function the x~unif(0,1)
+Ginvs <- function(x) 2-sqrt(7-(8/3)*x)
+Monte.Carlo.2 <- function(n){
+  X <- Ginvs(runif(n))
+  h.X <- (4/3)*abs(sin(pi*X))
+  m.h <- mean(h.X)
+}
+replicates.2 <- replicate(500,Monte.Carlo.2(n=1000))
+hist(replicates.2)
+# the 90% confidence interval by 'inversion approximation'.
+quantile(replicates.2,probs=c(0.05,0.95))
+
+
+```
+
+```{r}
+
+#
+# part(C)
+#
+# using AR method generates random samples X(1) to X(n) by the density h(x),we have f(x)=abs(1-x)*abs(sin(pi*x)) and
+# the maximum value of function f(x) on (-1,1) is 1.532493, define M equal to 1.532493.
+
+# at first show the maximum on the plot
+curve(abs(1-x)*abs(sin(pi*x)),-1,1)
+f.1 <- function(x) abs(1-x)*abs(sin(pi*x))
+maxi <- optimize(f.1,c(-1,1),maximum = TRUE)
+abline(v=maxi$maximum,col='blue',lty=2)
+abline(h=maxi$objective,col='blue')
+#
+# Using Accept-Reject on the rectangle
+#
+f <- function(x) abs(1-x)*abs(sin(pi*x))
+h <- function(x) pi/4*abs(sin(pi*x))
+#
+# sampling X1 to Xn
+#
+sample.AR <- function(n){
+  X <- rep(0,n)
+  nb.generated <- 0
+  nb.accepted <- 0
+  M <- maxi$objective
+  while(nb.accepted < n){
+    Y <- runif(1,-1,1)
+    U <- runif(1,0,M*h(Y))
+    nb.generated <- nb.generated +1
+    if(U < f(Y)){
+      nb.accepted <- nb.accepted +1
+      X[nb.accepted] <- Y
+    }
+  }
+  return(X)
+}
+
+#
+# calculate the interval
+#
+Monte.Carlo.3 <- function(n){
+  X <- sample.AR(n)
+  h.X <- 4/pi*abs(1-X)
+  m.h <- mean(h.X)
+}
+replicates.3 <- replicate(500,Monte.Carlo.3(n=1000))
+hist(replicates.3)
+# the 90% confidence interval by 'AR approach'.
+quantile(replicates.3,probs=c(0.05,0.95))
+
+```
+
+
+```{r}
+#
+# part(D)
+#
+f.1 <- function(x) abs(1-x)*abs(sin(pi*x)) 
+curve(abs(1-x)*abs(sin(pi*x)))
+integrate(f.1,-1,1)
+
+# 
+# conclusion
+#
+# we using code 'integrate' to get the integral should be close to 1.27324 (with absolute error < 1.4e-14),
+# so we compare those three methods, we find that only generating random samples from the uniform distribution on the 
+# interval (-1,1) such that confidence interval euqal to (1.223802,1.324588). this is the only confidence interval which
+# contains 1.27324. so we conlude that generating from uniform distribution is the best approach.
+```
+
+
+
+
+# Question 2
+```{r}
+# Part(A)
+#
+new.season <- function(mu, Delta, alpha, beta, N,seasons){
+  
+}
+```
+
+```{r}
+# Part(B)
+#
+```
+
+```{r}
+# Part(C)
+#
+```
+
+```{r}
+# Part(D)
+#
+```
+

@@ -1,0 +1,264 @@
+---
+title: "Assignment 4"
+author: "Xinhao Wang"
+date: '2018-02-27'
+output: html_document
+---
+
+## R Markdown
+
+# Question 1
+```{r}
+#part (A)
+X <- as.matrix(faithful[,'waiting']) 
+Y <- as.matrix(faithful[,'eruptions'])
+
+#
+# Generating one bootstrap replicate of beta
+#
+bootstrap.par <- function(original.sample){
+  n <- nrow(original.sample)
+  select.elements <- sample(1:n, size = n, replace = T)
+  bootstrap.sample <- original.sample[select.elements,]
+  Y.bootstrap <- bootstrap.sample[,'eruptions']
+  X.bootstrap <- bootstrap.sample[,'waiting']
+  #rd.errors <- rnorm(1,0,var.errors)
+  return(lm(Y.bootstrap~X.bootstrap)$coef)
+}
+#
+# The replicates
+#
+bootstrap.par(faithful)
+replicate.par <- replicate(2000,bootstrap.par(faithful))
+expected.duration <- apply(replicate.par,2, function(x)x[1]+x[2]*61)
+# 90% CI for the Y
+CI.expected.duration <- quantile(expected.duration,probs=c(0.05,0.95))
+CI.expected.duration
+```
+
+
+```{r}
+#part(B)
+#
+#
+# find beta.zero.hat and beta.one.hat
+model.faithful <- lm(Y~X)
+beta.hat.faithful <- model.faithful$coef
+beta0.hat <- beta.hat.faithful[1]
+beta1.hat <- beta.hat.faithful[2]
+
+Y.i.hat <- apply(X,1,function(x) beta0.hat+ x*beta1.hat)
+# R.e is the sample of observed residuals.
+R.e <- Y-Y.i.hat
+bootstrap.Re <- function(original.sample){
+  k <- length(original.sample)
+  select.elements <- sample(1:k,k,replace = T)
+  R.ek <- original.sample[select.elements,]
+  Y.star <- Y.i.hat + R.ek
+  return(lm(Y.star~X)$coef)
+}
+bootstrap.Re(R.e)
+replicate.Re <- replicate(2000,bootstrap.Re(R.e))
+expected.Duration <- apply(replicate.Re,2,function(x) x[1]+x[2]*61)
+# 90% CI for the Y
+CI.expected.Duration <- quantile(expected.Duration,probs=c(0.05,0.95))
+CI.expected.Duration
+```
+
+
+
+
+
+# Question 2
+```{r}
+
+# at first find all those team specific parameters by using the soccer.estimates function.
+######################################################################
+EPl.1617 <- read.csv("/Users/xinhao/Desktop/STAT4600/Assignment 2/EPL_1617.csv")
+game.result <- EPl.1617
+# soccer_estimates.R file
+soccer.estimates <- function(scores){
+  #
+  # Building the X matrix for GLM fit
+  #
+  home.teams <- as.character(scores[,'HT'])
+  away.teams <- as.character(scores[,'AT'])
+  teams <- sort(unique(c(home.teams,away.teams)))	
+  n.teams <- length(teams)
+  n.games <- length(home.teams)
+  Home <- matrix(0,n.games,n.teams-1)
+  Away <- matrix(0,n.games,n.teams-1)
+  for(j in 1:n.games){
+    home <- which(home.teams[j]==teams)
+    away <- which(away.teams[j]==teams)
+    if(home <= (n.teams-1)){
+      Home[j,] <- rep(0,n.teams-1)
+      Home[j,home] <- 1
+    }
+    else{
+      Home[j,] <- rep(-1,n.teams-1)
+    }
+    if(away <= (n.teams-1)){
+      Away[j,] <- rep(0,n.teams-1)
+      Away[j,away] <- 1
+    }
+    else{
+      Away[j,] <- rep(-1,n.teams-1)
+    }
+  }
+  home.matrix <- cbind(rep(1,n.games),rep(1,n.games),Home,Away)
+  away.matrix <- cbind(rep(1,n.games),rep(0,n.games),Away,Home)
+  design.matrix<-rbind(home.matrix,away.matrix)
+  #
+  # The response vector
+  #
+  home.scores <- scores[,'HG']
+  away.scores <- scores[,'AG']
+  response.vector <- c(home.scores,away.scores)
+  #
+  # Fitting the Poisson model
+  #
+  model.fit <- glm(response.vector~0+design.matrix,family=poisson(link='log'))
+  mu <- model.fit$coef[1]
+  names(mu) <- NULL
+  delta <- model.fit$coef[2]
+  names(delta) <- NULL
+  alpha <- c(model.fit$coef[3:21],-sum(model.fit$coef[3:21]))
+  names(alpha) <- teams
+  beta <- c(model.fit$coef[22:40],-sum(model.fit$coef[22:40]))
+  names(beta) <- teams
+  return(list(mu=mu,delta=delta,alpha=alpha,beta=beta))
+}
+specific.par <- soccer.estimates(game.result)
+```
+
+
+```{r}
+# part(A)
+############################################################
+# define a function new season.
+
+# calendar <- game.result[,1:3]
+# alpha <- as.data.frame(specific.par[3])
+# beta <- as.data.frame(specific.par[4])
+
+new.season <- function(game.results){
+  calendar=game.results[,1:3]
+  mu=as.numeric(soccer.estimates(game.results)[1])
+  Delta = as.numeric(soccer.estimates(game.results)[2])
+  alpha = as.data.frame(soccer.estimates(game.results)[3])
+  beta = as.data.frame(soccer.estimates(game.results)[4])
+  
+  home.teams <- as.character(calendar[,'HT'])
+  away.teams <- as.character(calendar[,'AT'])
+  teams <- sort(unique(c(home.teams,away.teams)))	
+  par.mu <- rep(mu,nrow(calendar))
+  par.Delta <- rep(Delta, nrow(calendar))
+  par.alpha.i <- c(0,nrow(calendar))
+  par.beta.i <- c(0,nrow(calendar))
+  par.alpha.j <- c(0,nrow(calendar))
+  par.beta.j <- c(0,nrow(calendar))
+  
+  for(i in 1:length(teams)){
+    a <- which(home.teams == teams[i])
+    par.alpha.i[a] <- alpha[teams[i],]
+    par.beta.i[a] <- beta[teams[i],]
+  }
+  
+  for(i in 1:length(teams)){
+    a <- which(away.teams == teams[i])
+    par.alpha.j[a] <- alpha[teams[i],]
+    par.beta.j[a] <- beta[teams[i],]
+  }
+  # table1 gives a data.frame containing calendar of games and the parameters mu, Delta, alpha and beta of the model.
+  table1 <- cbind(calendar,par.mu,par.Delta,par.alpha.i,par.beta.i,par.alpha.j,par.beta.j)
+  
+  # table2 gives a data frame containing the calendar and scores to all the games 
+  # in the same format as the soccer object we have used before.
+  HG <- apply(table1[,4:9],1,function(x) rpois(n=1,lambda = exp(x[1]+x[2]+x[3]+x[6])))
+  AG <- apply(table1[,4:9],1,function(x) rpois(n=1,lambda = exp(x[1]+x[5]+x[4])))
+  table2 <- cbind(calendar, HG, AG)
+  
+  return(table2)
+}
+NewSeason <- new.season(game.results = game.result)
+NewSeason
+```
+
+```{r}
+####################################################
+#Part (B)
+# the game.results of a season of interest
+# the number N of replicates of the full season that should be used for bootstrapping
+# the confidence level C that is desired
+
+# define a par.bootstrap function to find confidence interval for all parameters.
+par.bootstrap <- function(game.resultss, N, C){
+  teams <- sort(unique(c(as.character(EPl.1617[,'HT']),as.character(EPl.1617[,'AT']))))	
+  bootstrap.sample <- matrix(NA,nrow = 42,ncol = N)
+  for(i in 1:N){
+    bootstrap.sample[,i] <- unlist(soccer.estimates(new.season(game.resultss)), use.names = FALSE)
+  }
+  CI <- t(apply(bootstrap.sample,1,function(x) quantile(x,probs=c(C/2,1-C/2))))
+  name.alpha <- paste(teams, "alpha",sep = "__")
+  name.beta <- paste(teams, "beta",sep = "__")
+  row.names(CI) <- c('mu','Delta',name.alpha,name.beta)
+  return(CI)
+}
+# if N is large, may take a while to get answer.
+CI.bootstrap <- par.bootstrap(game.result,N=100,C=0.1)
+CI.bootstrap
+
+```
+
+
+
+# Question 3
+```{r}
+####################################################
+#part(A)
+
+# We want to test the parameter beta one is 0 or not. the Y's are identically distributed when beta 
+# one is  0. so they are follow a same distribution when beta1 is 0. If the X(waiting time) is given,
+# then all the Y(eruptions) should be fixed. and the sample procedure in permutation test is same to 
+# the sample in bootstrap.
+# 
+# there are 272! number of permutation replicates in Old Faithful data, Getting all of them will be 
+# too long! so we choose a acceptable replicate nember n, after n time replicates, we can get a vector of 
+# beta1
+#
+# then base on t-test, we find a confidence interval with confidence level C. If this CI contains 0, then
+# we can conclude beta1 is 0, and we fail to reject H0 at level of C.
+#
+#
+
+
+```
+
+```{r}
+#part(B)
+X <- as.matrix(faithful[,'waiting']) 
+Y <- as.matrix(faithful[,'eruptions'])
+
+perm.beta1 <- function(original.sample){
+  n <- nrow(original.sample)
+  select.elements <- sample(1:n, size = n, replace = T)
+  perm.sample <- original.sample[select.elements,]
+  Y.perm <- perm.sample[,'eruptions']
+  X.perm <- perm.sample[,'waiting']
+  return(lm(Y.perm~X.perm)$coef[2])
+}
+replicates.beta1 <- replicate(10000,perm.beta1(faithful))
+# 90% CI for the beta1
+CI.beta1 <- quantile(replicates.beta1,probs=c(0.05,0.95))
+CI.beta1
+hist(replicates.beta1, xlab='T', freq=FALSE, main="Permutation replicates of beta1")
+abline(v=CI.beta1[1], lty=2, lwd=2, col='red')
+abline(v=CI.beta1[2], lty=2, lwd=2, col='red')
+
+# since CI.beta1 is not contains 0, so we reject H0 at 10% confidence level. And we conclude that 
+# beta1 not equal to 0.
+```
+
+
+

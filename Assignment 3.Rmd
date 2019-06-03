@@ -1,0 +1,230 @@
+---
+title: "Assignment 3"
+author: "Xinhao Wang"
+output: html_document
+---
+
+
+# Question 1
+```{r}
+#(a)
+ran.variable <- function(sigma = 1){
+  if(rbinom(1,1,0.05) == 0){
+    a.sample <- rnorm(1,mean = 0, sigma)
+  }
+  else{
+    a.sample <- rnorm(1,mean = 8, sigma)
+  }
+    return(a.sample)
+}
+
+single.sample <- function(n.sizes){
+  b.sample <- replicate(n.sizes, ran.variable())
+  return(b.sample)
+}
+
+total.sample <- function(n.times,num.sizes){
+  c.sample <- replicate(n.times, single.sample(num.sizes))
+  return(c.sample)
+}
+
+library(matrixStats)
+final.sample <- total.sample(1000,10)
+hist(colMeans(final.sample),breaks = 100)
+hist(colMedians(final.sample),breaks = 100)
+```
+
+```{r}
+#(b)
+final.sample <- total.sample(1000,25)
+hist(colMeans(final.sample),breaks = 100)
+hist(colMedians(final.sample),breaks = 100)
+```
+
+
+```{r}
+#(c)
+final.sample <- total.sample(1000,100)
+hist(colMeans(final.sample),breaks = 100)
+hist(colMedians(final.sample),breaks = 100)
+```
+
+```{r}
+#(d)
+
+#it looks like there is no difference between sample size 25 and 100 or others when the sample times is same as 1000.
+```
+
+
+
+
+
+
+
+# Question 2
+```{r}
+# setwd("~/Desktop/University/UM/STAT4600/Assignment")
+# The function: season.summary
+# this function is from assignment 2
+season.summary <- function(scores, alphabetical=T){
+  teams <- sort(unique(c(scores$HT,scores$AT)))		# this works even if a team has only home/away games
+  n.teams <- length(teams)
+  n.games <- length(scores$HT)
+  ##
+  # Calculating W-T-L
+  #
+  WTL <- matrix(0,n.teams,7,dimnames=list(teams,c('W','T','L','GF','GA','GD','Pts')))
+  for(j in 1:n.games){
+    home <- scores$HT[j]
+    away <- scores$AT[j]
+    WTL[home,'GF'] <- WTL[home,'GF'] + scores$HG[j]
+    WTL[home,'GA'] <- WTL[home,'GA'] + scores$AG[j]
+    WTL[away,'GF'] <- WTL[away,'GF'] + scores$AG[j]
+    WTL[away,'GA'] <- WTL[away,'GA'] + scores$HG[j]
+    if(scores$HG[j] > scores$AG[j]) outcome <- 'H'			# home win in this case 
+    if(scores$HG[j] < scores$AG[j])	outcome <- 'A'			# away win
+    if(scores$HG[j] == scores$AG[j]) outcome <- 'T'			# Tie
+    switch(outcome,
+           'A' = {WTL[home,'L'] <- WTL[home,'L']+1 ; WTL[away,'W'] <- WTL[away,'W']+1},
+           'T' = {WTL[home,'T'] <- WTL[home,'T']+1 ; WTL[away,'T'] <- WTL[away,'T']+1},
+           'H' = {WTL[home,'W'] <- WTL[home,'W']+1 ; WTL[away,'L'] <- WTL[away,'L']+1}
+    )
+  }
+  #
+  # Calculating goal difference and points
+  #
+  WTL[,'GD'] <- WTL[,'GF']-WTL[,'GA']
+  WTL[,'Pts'] <- 3*WTL[,'W']+WTL[,'T']
+  #
+  # In alphabetical order
+  #
+  if(alphabetical==T) return(WTL)
+  #
+  # Otherwise, by points total, GD and Wins
+  #
+  return(WTL[order(WTL[,'Pts'],WTL[,'GD'],WTL[,'W'],decreasing=T),])
+}
+
+
+###########################################
+# The function: date.summary
+# part(a)
+
+date.summary <- function(first.date, second.date, game.results){
+  first.date <- as.Date(first.date)
+  second.date <- as.Date(second.date)
+  game.results.Date <- as.Date(game.results$Date)
+  
+  if(first.date - second.date >= 0){
+    return(paste("The two dates aren???t ordered properly."))
+  }
+  if(max(game.results.Date) <= first.date | min(game.results.Date) >= second.date){
+    return(paste("no games took place between the given dates"))
+  } 
+  if(ncol(game.results[game.results$Date >= first.date & game.results$Date <= second.date,]) > 0){
+    game.results <- game.results[game.results$Date >= first.date & game.results$Date <= second.date,]
+    return(season.summary(game.results[,2:5],alphabetical = F))
+  }
+}
+
+
+game.results <- read.csv("EPL_1617.csv", header = T, stringsAsFactors = FALSE)
+
+# To find the first seven weeks of the season. "2016-08-13" to "2016-09-30"
+# In the first seven weeks "Manchester City" is the best. "Sunderland" is the worst.
+date.summary("2016-08-13","2016-09-30",game.results)
+
+
+# To find the first seven weeks of the season. "2017-04-03" to "2017-05-21"
+# In last first seven weeks "Tottenham Hotspur" is the best. "West Bromwich Albion" is the worst.
+date.summary("2017-04-03","2017-05-21",game.results)
+```
+
+
+
+```{r}
+
+#part(b)
+
+team.progression <- function(game.results){
+  k <- rep(0,20)
+  count.pts <- rep(0,20)
+  teams <- game.results[order(game.results[,1]),]
+  teams.name <- sort(unique(c(game.results$HT,game.results$AT)))
+  result.matrix <- matrix(0,20,38,byrow = T)
+  colnames(result.matrix) <- as.character(c(1:38)) 
+  rownames(result.matrix) <- teams.name
+  for(i in 1:20){
+    for(j in 1:380){
+        if(teams.name[i] == teams[j,2]){
+          k[i] <- k[i]+1
+          if(teams[j,4] > teams[j,5]){
+            count.pts[i] <- count.pts[i] + 3
+          }
+          if(teams[j,4] < teams[j,5]){
+            count.pts[i] <- count.pts[i] + 0
+          }
+          if(teams[j,4] == teams[j,5]){
+            count.pts[i] <- count.pts[i] + 1
+          }
+          result.matrix[i,k] <- count.pts[i]
+        }
+        if(teams.name[i] == teams[j,3]){
+          k[i] <- k[i]+1
+          if(teams[j,4] > teams[j,5]){
+            count.pts[i] <- count.pts[i] + 0
+          }
+          if(teams[j,4] < teams[j,5]){
+            count.pts[i] <- count.pts[i] + 3
+          }
+          if(teams[j,4] == teams[j,5]){
+            count.pts[i] <- count.pts[i] + 1
+          }
+          result.matrix[i,k] <- count.pts[i]
+        }
+    }
+  }
+  
+  return(result.matrix)
+}
+
+team.progression(game.results)
+
+
+
+
+```
+
+
+```{r}
+# part (c)
+
+# Chelsea's domination over the season.
+for(i in 1:20){
+  plot(team.progression(game.results)[i,],xlim = c(0,40),ylim = c(0,100),xlab="",ylab = "",type = "l")
+  par( new = TRUE)
+}
+par(new = T)
+plot(team.progression(game.results)[4,],xlim = c(0,40),ylim = c(0,100),xlab="game 1-38",ylab = "points",type = "l",col = "red")
+title(main = "points over the season")
+
+# The red line is the Chelsea's performance over the season. It's easy 
+# to see that Chelsea is on the top at the most of time duing the season.
+# and they has the highest points at the end of season.
+
+
+
+# Sunderland's performance over the season.
+for(i in 1:20){
+  plot(team.progression(game.results)[i,],xlim = c(0,40),ylim = c(0,100),xlab="",ylab = "",type = "l")
+  par( new = TRUE)
+}
+par(new = T)
+plot(team.progression(game.results)[15,],xlim = c(0,40),ylim = c(0,100),xlab="game 1-38",ylab = "points",type = "l",col = "green")
+title(main = "points over the season")
+
+# The green line is the Sunderland's performance over the season. It's easy 
+# to see that Sunderland is at the bottom at the most of time duing the season.
+# and they has the lowest points at the end of season.
+```
+
