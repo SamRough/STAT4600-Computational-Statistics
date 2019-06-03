@@ -1,0 +1,328 @@
+---
+title: "STAT4600 Final"
+author: "Xinhao Wang"
+date: '2018-04-18'
+output: html_document
+---
+
+# Question 5
+```{r}
+#
+# part(A)
+#
+# Working from uniforms
+#
+# sample size N=1000, Monte Carlo experiment n=500 times.
+#
+I.unif <- function(N){
+  X <- runif(N,-1,1)        #g(x)=1/2
+  f.X <- 2*(1+X)*log(1+X)   #h(x)=2*(1+X)*log(1+X)
+  return(mean(f.X))
+}
+#
+# The replicates of I
+#
+I.replicates.A <- replicate(500,I.unif(1000))
+
+#
+# part(B)
+#
+#
+# Antithetic Sampling (N should be divisible by 2)
+#
+monte.carlo.AS <- function(N){
+  U <- runif(N/2)
+  X <- 2*U-1      #generate by G inverse
+  Y <- 2*(1-U)-1  #work from the inversion method
+  X.h <- 2*(1+X)*log(1+X)
+  Y.h <- 2*(1+Y)*log(1+Y)
+  I.hat <- mean(X.h+Y.h)/2
+  return(I.hat)
+}
+#
+# The replicates of I.hat
+#
+I.hat.replicates <- replicate(500,monte.carlo.AS(1000))
+
+
+
+#part(C)
+
+#
+# using the randomized trapezoidal rule
+#
+
+I.rand.trape <- function(N){
+  # generate Y.1 to Y.n-1 on (a,b), N-1 number. and a=Y0=-1, b=Yn=1.
+  # in total there are N+1 numbers.
+  Y <- c(-0.99999999,sort(runif(N-1,-1,1)),1) #since when x=-1, log(1-x)=NaN, I replace a=-1 to a=-0.99999999
+  f <- function(X) {(1+X)*log(1+X)}
+  J.T <- 0
+  for(i in 1:N){
+    J.T <- J.T + (Y[i+1]-Y[i])*(f(Y[i])+f(Y[i+1]))
+  }
+  return((1/2)*J.T)
+}
+
+I.rand.trape.replicates <- replicate(500,I.rand.trape(1000))
+
+
+# part(D)
+mean(I.replicates.A)
+mean(I.hat.replicates)
+mean(I.rand.trape.replicates)
+quantile(I.replicates.A,c(0.05,0.95))
+quantile(I.hat.replicates,c(0.05,0.95))
+quantile(I.rand.trape.replicates,c(0.05,0.95))
+
+#
+# Conclusion:
+#
+# By study the mean and the 90% confidence interval for each approaches method, those means are almost same. 
+# But for the confidence interval. we conclude that the randomized trapzoidal rule is the best mehod to
+# approximate I, it has the shortest CI. And the antithetic variable Strategy performance is better
+# than appropriate uniform distribution.
+#
+
+
+```
+
+#Question 6
+```{r}
+counts <- c(4, 5, 4, 1, 0, 4, 3, 4, 0, 6, 3, 3, 4, 0, 2, 6, 3, 3, 5, 4, 5, 3,
+            1, 4, 4, 1, 5, 5, 3, 4, 2, 5, 2, 2, 3, 4, 2, 1, 3, 2, 2, 1, 1, 1, 1, 3, 0, 0,
+            1, 0, 1, 1, 0, 0, 3, 1, 0, 3, 2, 2, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 2, 1, 0,
+            0, 0, 1, 1, 0, 2, 3, 3, 1, 1, 2, 1, 1, 1, 1, 2, 4, 2, 0, 0, 0, 1, 4, 0, 0, 0,
+            1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1)
+
+years <- 1851:1962
+n<-length(years)
+indx <- 1:n
+
+# Part (A)
+#
+# Working from the profile log-Likelihood for k
+#
+
+prof.log.like <- Vectorize(function(k){
+  lamda.1.hat <- mean(counts[1:k])
+  lamda.2.hat <- (n*mean(counts)-k*mean(counts[1:k]))/(n-k)
+  f <- k*mean(counts[1:k])*log(lamda.1.hat)-k*lamda.1.hat+
+    (n*mean(counts)-k*mean(counts[1:k]))*log(lamda.2.hat)-(n-k)*lamda.2.hat
+  return(f)
+},vectorize.args = c('k'))
+
+
+curve(prof.log.like(x),1,111,main='Profile Likelihood for k',xlab='k',ylab='L*(k|x)')
+k.hat <- optimize(prof.log.like,int=c(1:111),maximum=T)$max
+# display the MLE of k on that graph.
+abline(v=k.hat,lty=2,col='red')
+#
+# The year corresponds to the change-point is 40.99993 = 41.
+#
+
+
+
+#
+# Part(B)
+#
+# since k=41.
+k <- 41
+lamda.1.hat <- mean(counts[1:k])
+lamda.2.hat <- (n*mean(counts)-k*mean(counts[1:k]))/(n-k)
+
+# using log-likelihood function fitting a possion model with no change-point to the data.
+lpoisson <- function(y){sum(dpois(counts,y,log = T))}
+yy <- seq(0,10,0.05)
+plot(yy,sapply(yy,lpoisson),type='l',xlab=expression(lamda),ylab='Poisson likelihood')
+# MLE of no change-point lamda.
+lamda.hat <- optimize(lpoisson, int=c(0,10), maximum=T)$maximum
+
+plot(x=indx,y=counts)
+# lamda.1 (change point)
+abline(h=lamda.1.hat,lty=1,col='green')
+# lamda.2 (change point)
+abline(h=lamda.2.hat,lty=1,col='red')
+# lamda(no change-point)
+abline(h=lamda.hat,lty=1,col='blue')
+
+
+```
+
+#Question7
+```{r}
+# part(A)
+home.chelsea <- c(2, 3, 1, 3, 4, 5, 2, 1, 3, 4, 2, 3, 3, 4, 1, 2, 4, 3, 5)
+away.chelsea <- c(2, 2, 0, 2, 2, 1, 3, 1, 1, 0, 3, 1, 1, 2, 2, 3, 0, 3, 1)
+post.d <- function(l.t){
+  lambda <- l.t[1]
+  theta <- l.t[2]
+  #lll <- prod(dpois(x=home.chelsea,theta+lamda),dpois(x=away.chelsea,lamda),1/((1+lamda)^2),1/((1+theta)^2))
+  #lll <- prod(dpois(x=home.chelsea,theta+lamda),dpois(x=away.chelsea,lamda))
+  lll <- sum(dpois(x=home.chelsea,theta+lambda,log = T),dpois(x=away.chelsea,lambda,log = T),log(1/((1+lambda)^2)),log(1/((1+theta)^2)))
+  return(lll)
+}
+optim(c(3,3),post.d,control=list(fnscale=-1))$par
+
+
+# part(B)
+
+post.B <- Vectorize(function(lambda,theta){
+  lll <- prod(dpois(x=home.chelsea,theta+lambda),dpois(x=away.chelsea,lambda))
+  return(lll)
+},vectorize.args = list('lambda','theta'))
+
+Beys.est <- function(n){
+  lambda.hat <- runif(n)/(1-runif(n))
+  theta.hat <- runif(n)/(1-runif(n))
+  h1.lambda <- lambda.hat*post.B(lambda.hat,theta.hat)
+  h1.theta.hat <- theta.hat*post.B(lambda.hat,theta.hat)
+  h0 <- post.B(lambda.hat,theta.hat)
+  lam.hat <- sum(h1.lambda)/sum(h0)
+  the.hat <- sum(h1.theta.hat)/sum(h0)
+  return(c(lam.hat,the.hat))
+}
+
+Beys.est(n=1000)
+
+# part(C)
+
+h.lam.the <- Vectorize(function(lambda,theta){
+  lll <- 1/((1+lambda)*(1+theta))
+  return(lll)
+},vectorize.args = list('lambda','theta'))
+
+Beys.est.gamma <- function(n){
+  lambda.hat <- rgamma(n,sum(away.chelsea)+1,19)
+  # theta = (lambda + theta) - lambda
+  theta.hat <- rgamma(n,sum(home.chelsea)+1,19)-lambda.hat
+  h1.lambda <- lambda.hat*h.lam.the(lambda.hat,theta.hat)
+  h1.theta.hat <- theta.hat*h.lam.the(lambda.hat,theta.hat)
+  h0 <- h.lam.the(lambda.hat,theta.hat)
+  lam.hat <- sum(h1.lambda)/sum(h0)
+  the.hat <- sum(h1.theta.hat)/sum(h0)
+  return(c(lam.hat,the.hat))
+}
+
+Beys.est.gamma(n=1000)
+
+
+# part(D)
+
+
+```
+
+#Question8
+```{r}
+#
+# part(A)
+#
+# The function: season.summary
+#
+NHL <- read.csv("~/Desktop/NHL_1718.csv", header=T, stringsAsFactors = FALSE)
+NHL <- NHL[2:7]
+season.summary <- function(scores,league=F,division=F,conference=F){
+  teams <- sort(unique(c(scores$Home,scores$Visitor)))		# this works even if a team has only home/away games
+  n.teams <- length(teams)
+  n.games <- length(scores$Home)
+  ##
+  # Calculating W-L-OSL-ROW
+  #
+  WL <- matrix(0,n.teams,8,dimnames=list(teams,c('W','L','OSL','PTS','ROW','GF','GA','GD')))
+  for(j in 1:n.games){
+    home <- scores$Home[j]
+    away <- scores$Visitor[j]
+    WL[home,'GF'] <- WL[home,'GF'] + scores$G.1[j]
+    WL[home,'GA'] <- WL[home,'GA'] + scores$G[j]
+    WL[away,'GF'] <- WL[away,'GF'] + scores$G[j]
+    WL[away,'GA'] <- WL[away,'GA'] + scores$G.1[j]
+    # if(scores$G.1[j] > scores$G[j]) outcome <- 'H'			# home win in this case 
+    # if(scores$G.1[j] < scores$G[j])	outcome <- 'A'			# away win
+    
+    if(scores$Type[j] == 'OT'){
+      if(scores$G.1[j] > scores$G[j]) outcome <- 'OAL'   # overtime away loss
+      if(scores$G.1[j] < scores$G[j]) outcome <- 'OHL'   # overtime home loss
+    }
+    if(scores$Type[j] == 'SO'){
+      if(scores$G.1[j] > scores$G[j]) outcome <- 'SAL'   # shootout away loss
+      if(scores$G.1[j] < scores$G[j]) outcome <- 'SHL'   # shootout home loss
+    }
+    if(scores$Type[j] == ''){
+      if(scores$G.1[j] > scores$G[j]) outcome <- 'H'			# home win in this case 
+      if(scores$G.1[j] < scores$G[j])	outcome <- 'A'			# away win
+    }
+    
+    switch(outcome,
+           'OAL' = {WL[home,'W'] <- WL[home,'W']+1 ; WL[away,'OSL'] <- WL[away,'OSL']+1 ; WL[home,'ROW'] <- WL[home,'ROW']+1},
+           'OHL' = {WL[home,'OSL'] <- WL[home,'OSL']+1 ; WL[away,'W'] <- WL[away,'W']+1 ; WL[away,'ROW'] <- WL[away,'ROW']+1},
+           'SAL' = {WL[home,'W'] <- WL[home,'W']+1 ; WL[away,'OSL'] <- WL[away,'OSL']+1},
+           'SHL' = {WL[home,'OSL'] <- WL[home,'OSL']+1 ; WL[away,'W'] <- WL[away,'W']+1},
+           'A' = {WL[home,'L'] <- WL[home,'L']+1 ; WL[away,'W'] <- WL[away,'W']+1 ; WL[away,'ROW'] <- WL[away,'ROW']+1},
+           'H' = {WL[home,'W'] <- WL[home,'W']+1 ; WL[away,'L'] <- WL[away,'L']+1 ; WL[home,'ROW'] <- WL[home,'ROW']+1}
+    )
+  }
+  #
+  # Calculating goal difference and points
+  #
+  WL[,'GD'] <- WL[,'GF']-WL[,'GA']
+  WL[,'PTS'] <- 2*WL[,'W']+WL[,'OSL']
+  #
+  #
+  #
+  overall <- WL[order(WL[,'PTS'],WL[,'ROW'],WL[,'GD'],decreasing=T),]
+  if(league==T) return(overall)
+  
+  
+  
+  Atlantic <- overall[c('Boston Bruins','Buffalo Sabres','Detroit Red Wings','Florida Panthers','Montreal Canadiens',
+                      'Ottawa Senators','Tampa Bay Lightning','Toronto Maple Leafs'),]
+  Metropolitan <- overall[c('Carolina Hurricanes', 'Columbus Blue Jackets', 'New Jersey Devils', 'New York Islanders', 
+                            'New York Rangers' , 'Philadelphia Flyers', 'Pittsburgh Penguins', 'Washington Capitals'),]
+  Central <- overall[c('Chicago Blackhawks', 'Colorado Avalanche', 'Dallas Stars', 'Minnesota Wild', 'Nashville Predators' ,
+                       'St. Louis Blues', 'Winnipeg Jets'),]
+  Pacific <- overall[c('Anaheim Ducks', 'Arizona Coyotes', 'Calgary Flames', 'Edmonton Oilers', 'Los Angeles Kings',
+                       'San Jose Sharks', 'Vancouver Canucks', 'Vegas Knights'),]
+  #order
+  Atlantic <- Atlantic[order(Atlantic[,'PTS'],Atlantic[,'ROW'],Atlantic[,'GD'],decreasing=T),]
+  Metropolitan <- Metropolitan[order(Metropolitan[,'PTS'],Metropolitan[,'ROW'],Metropolitan[,'GD'],decreasing=T),]
+  Central <- Central[order(Central[,'PTS'],Central[,'ROW'],Central[,'GD'],decreasing=T),]
+  Pacific <- Pacific[order(Pacific[,'PTS'],Pacific[,'ROW'],Pacific[,'GD'],decreasing=T),]
+  
+  if(division==T) return(list(Atlantic=Atlantic,Metropolitan=Metropolitan,Central=Central,Pacific=Pacific))
+  
+  Eastern <- rbind(Atlantic,Metropolitan)
+  Western <- rbind(Central,Pacific)
+  #order
+  Eastern <- Eastern[order(Eastern[,'PTS'],Eastern[,'ROW'],Eastern[,'GD'],decreasing=T),]
+  Western <- Western[order(Western[,'PTS'],Western[,'ROW'],Western[,'GD'],decreasing=T),]
+  if(conference==T) return(list(Eastern=Eastern,Western=Western))
+}
+
+
+season.summary(NHL,league = T,division = F,conference = F)
+season.summary(NHL,league = F,division = T,conference = F)
+season.summary(NHL,league = F,division = F,conference = T)
+
+
+# part(B)
+
+playoff <- function(scores){
+  altantic <- season.summary(scores,division = T)$Atlantic[1:3,]
+  metro <- season.summary(scores,division = T)$Metropolitan[1:3,]
+  east.wild.cards <- season.summary(NHL,league = F,division = F,conference = T)$Eastern[7:8,]
+  central <- season.summary(scores,division = T)$Central[1:3,]
+  pacific <- season.summary(scores,division = T)$Pacific[1:3,]
+  west.wild.cards <- season.summary(NHL,league = F,division = F,conference = T)$Western[7:8,]
+  return(list(altantic=altantic,metro=metro,east.wild.cards=east.wild.cards,
+              central=central,pacific=pacific,west.wild.cards=west.wild.cards))
+}
+
+playoff(scores = NHL)
+
+
+# part(C)
+
+
+
+```
+
